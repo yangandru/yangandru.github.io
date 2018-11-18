@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Document</title>
+  <style>
+    [v-cloak] {
+    display: none;
+    }
+  </style>
+  <link rel="stylesheet" href="./css/twoDayone.css">
+</head>
+
+<body>
+  <section class="todoapp">
+    <header class="header">
+      <h1>备忘录</h1>
+      <input autofocus="autofocus" autocomplete="off" placeholder="你想干啥!" class="new-todo" @keyup.enter="addKey"
+        v-model.trim="issMode" />
+    </header>
+    <section class="main">
+      <input type="checkbox" class="toggle-all" v-model="isCheckAll" @change="clickAccess" />
+      <ul class="todo-list">
+
+        <!-- v-bind:class="{ active: isActive, 'text-danger': hasError }"> -->
+        <li class="todo"  v-for="(item, index) in issArrar" v-cloak  @dblclick="enterDing(item)" :class="{completed:item.completed,editing:item==editTodo}
+        ">
+          <div class="view">
+            <input type="checkbox" v-model="item.completed" class="toggle" />
+            <label>{{item.content}}</label>
+            <button class="destroy" @click="delOne(index)"></button>
+          </div>
+          <!-- 编辑的文本框 -->
+          <input type="text" class="edit" @keyup.enter="editTodo=undefined" v-model="item.content" @blur="editTodo=undefined" />
+
+        </li>
+
+
+
+
+      </ul>
+    </section>
+    <footer v-cloak class="footer">
+      <span class="todo-count" v-show="unComletedNum!=0">
+        <strong>{{unComletedNum}}</strong> {{ unComletedNum>1?"items":"item"}} left </span>
+      <ul class="filters">
+        <li><a href="#/all" :class="{selected:status=='All'}" @click="status='All'">All</a></li>
+        <li><a href="#/active" :class="{selected:status=='Active'}" @click="status='Active'">Active</a></li>
+        <li><a href="#/completed" :class="{selected:status=='Completed'}" @click="status='Completed'">Completed</a></li>
+      </ul>
+      <!-- 清空所有内容 -->
+      <button @click="deledOnce" class="clear-completed">Clear completed</button>
+    </footer>
+  </section>
+  <footer class="info">
+    <p>双击进入编辑状态</p>
+    <p>感谢 <a href="http://evanyou.me">Evan You</a></p>
+    <p>感谢 <a href="http://todomvc.com">TodoMVC</a></p>
+    <!-- github 新建一个仓库, 仓库的名字,  必须是 自己的名字 -->
+    <p>精彩点击 <a href="http://pic1.win4000.com/pic/9/a4/021fc0d4a8_250_300.jpg">OVER</a></p>
+  </footer>
+</body>
+
+</html>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+<script>
+  /*
+    需求1: 
+    顶部输入框 
+    输入内容 点击回车
+    获取输入的内容 添加到页面上
+    [
+      {
+        content:'干嘛', 新增的内容
+        
+        completed:false 默认新增的是没有完成的
+      }
+    ]
+
+  需求2:
+      输入内容: 为空提示用户
+      新增加完毕之后, 添加到页面上
+  
+  需求3:
+      点击一行的checkbox 切换到完成状态
+      直接使用双向绑定给每一行的checkbox即可
+
+  需求4:
+      点击每一行末尾的删除按钮, 删除当前这一条数据即可
+
+  需求5:
+      代办事项数据常驻 localStroage(只要清楚缓存 一直都在) sessionStroage(一次对话,关闭浏览器)
+        如果要保证: 缓存数据一直存在 保存在服务器的数据库 客户端是不可控的
+      时机1:
+        读取数据
+          页面打开时读取数据
+        保存数据
+          每次修改数据 -> 性能消耗大
+          关闭浏览器时保存 -> 性能消耗小
+
+  需求6:
+      点击顶部的全选, 让底部的所有 checkbox 的选中状态 , 跟自己一样
+
+  需求7:
+      实现方式
+        点击底部的单选
+          根据底部的单选
+            根据其中的个数 已经总个数 决定顶部全选状态的值
+
+  需求8:
+      计算没有完成的事件的个数
+        使用计算属性完成
+
+  需求9:
+      点击右下角的 clear completed
+      删除所有  completed == true 的值
+
+  需求10;
+      1.点击底部中间的 筛选选装 切换 高亮的类名
+      2. 切换顶部显示的内容
+
+  需求11:
+      双击某一项 进入编辑状态
+      为当前点击的li标签 增加 editing这个类名 (从官方实例可以看到的类名)
+
+
+  */
+  let app = new Vue({
+    el: ".todoapp",
+    data: {
+      // 新增的内容
+      issMode: "",
+      // 一直的数组
+      issArrar: [],
+
+      // 是否全选
+      isCheckAll: false,
+
+      // 定义字段 : 保存 当前选中的状态
+      status: "All",
+      // 编辑的对象
+      editTodo: undefined
+    },
+
+    methods: {
+      addKey() {
+        if (this.issMode === "") {
+          alert("大爷来点");
+          return;
+        }
+        this.issArrar.unshift({
+          content: this.issMode,
+          completed: false,
+        });
+        // 清空内容
+        this.issMode = "";
+        // console.log(this.issArrar);
+
+      },
+      delOne(index) {
+        console.log(index);
+        // this.issArrar.splice(index,1)
+        if (window.confirm("不要嘛,成妾要吗")) {
+          this.issArrar.splice(index, 1)
+        } else {
+          // 什么都不用做
+        }
+
+      },
+      // 全部选中
+      clickAccess() {
+        // 遍历所有数组的值, 让他们的状态跟 全选一样
+        this.issArrar.forEach(v => {
+          v.completed = this.isCheckAll;
+        });
+      },
+      // 每一项的选中状态改变
+      // oneChece(){
+      //   let totalCount = this.issArrar.length;
+      //   // 选中的个数
+      //   let checkedCount = 0;
+      //   this.issArrar.forEach(v => {
+      //     if (v.completed == true) {
+      //       checkedCount++
+      //     }
+      //   });
+      //   // 把布尔值比较的结果 赋值回去
+      //   this.isCheckAll = totalCount == checkedCount;
+
+
+      // },
+
+
+      // 进入编辑状态
+      enterDing(item) {
+        this.editTodo = item;
+      },
+
+
+
+
+
+      // 清空数据
+      deledOnce() {
+        if (window.confirm("你真的要这样吗")) {
+          for (let i = this.issArrar.length - 1; i >= 0; i--) {
+            // 找到完成的 删除即可
+            if (this.issArrar[i].completed == true) {
+              this.issArrar.splice(i, 1);
+            }
+          }
+        } else {
+          alert("我要么么哒")
+        }
+      }
+
+    },
+    // 另一种写法
+    // 侦听器
+    watch: {
+      issArrar: {
+        // 数据改变触发的方法
+        handler: function (val, oldVal) {
+          console.log("触发了");
+
+          // 获取被选中的个数
+          let checkedNum = 0;
+          this.issArrar.forEach(v => {
+            if (v.completed == true) {
+              checkedNum++
+            }
+          });
+          this.isCheckAll = this.issArrar.length == checkedNum;
+        },
+        // 深度监听
+        deep:true,
+      }
+    },
+    beforeCreate() {
+      // Vue实例被创建时就会触发
+      // 但是 传递的参数 还没有应用上去
+      console.log("beforeCreate");
+      console.log(this.inputTodo); // undefined
+    },
+    // 一般在初始化Vue的数据时候使用
+    created() {
+      this.issArrar = JSON.parse(window.localStorage.getItem("todo24")) || [{
+        content: "要要要",
+        completed: false
+      }]
+    },
+
+
+
+    computed: {
+      // 未完成的个数
+      unComletedNum() {
+        let count = 0;
+        // 遍历 求值
+        this.issArrar.forEach(v => {
+          if (v.completed == false) {
+            count++;
+          }
+        });
+        // 使用返回值告诉结果
+        return count;
+      }
+    }
+  });
+
+  // 页面关闭 缓存数据
+  window.onbeforeunload = function () {
+    window.localStorage.setItem("todo24", JSON.stringify(app.issArrar))
+  }
+</script>
